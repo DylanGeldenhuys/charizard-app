@@ -1,68 +1,61 @@
-#https://towardsdatascience.com/beginners-guide-to-building-a-multi-page-dashboard-using-dash-5d06dbfc7599
-
-from dash import Dash, html
 import dash
-import dash_bootstrap_components as dbc
+import pandas as pd
+from dash import Dash, dash_table, dcc, html, Input, Output, State
+import plotly.express as px
 
-
-
-dropdown = dbc.DropdownMenu(
-    children=[
-        dbc.DropdownMenuItem("Home", href="/"),
-        dbc.DropdownMenuItem("Vehicles", href="/vehicles"),
-        dbc.DropdownMenuItem("Clients", href="/clients"),
-        dbc.DropdownMenuItem("EventTrail", href="/eventtrail"),
-    ],
-    nav = True,
-    in_navbar = True,
-    label = "Menu",
-)
-
-navbar = dbc.Navbar(
-    dbc.Container(
-        [
-            dbc.NavbarToggler(id="navbar-toggler2"),
-            dbc.Collapse(
-                dbc.Nav(
-                    # right align dropdown menu with ml-auto className
-                    [dropdown], className="ml-auto", navbar=True
-                ),
-                id="navbar-collapse2",
-                navbar=True,
-            ),
-        ]
-    ),
-    color="dark",
-    dark=True,
-    className="mb-4",
-)
-
-def create_layout(app: Dash) -> html.Div:
-    return html.Div([
-	html.H1('Metagrated'),
-    html.Hr(),
-    html.Div(
-        [
-            dropdown,
-            html.Hr()
-        ]
-    ),
-
-	dash.page_container
-])
-
-# def main() -> None:
-#     external_stylesheets = [dbc.themes.LUX]
-#     app = Dash(__name__, external_stylesheets=external_stylesheets, use_pages=True)
-#     server = app.server
-#     app.title = "metagrated"
-#     app.layout = create_layout(app)
-#     app.run_server(port=8007,debug=True)
-
-
-external_stylesheets = [dbc.themes.LUX]
-app = Dash(__name__, external_stylesheets=external_stylesheets, use_pages=True)
+app = Dash(__name__)
 server = app.server
-app.title = "metagrated"
-app.layout = create_layout(app)
-app.run_server(port=8009,debug=True)
+
+df = px.data.gapminder()
+
+range_slider = dcc.RangeSlider(
+    value=[1987, 2007],
+    step=5,
+    marks={i: str(i) for i in range(1952, 2012, 5)},
+)
+
+dtable = dash_table.DataTable(
+    columns=[{"name": i, "id": i} for i in sorted(df.columns)],
+    sort_action="native",
+    page_size=10,
+    style_table={"overflowX": "auto"},
+)
+
+download_button = html.Button("Download Filtered CSV", style={"marginTop": 20})
+download_component = dcc.Download()
+
+app.layout = html.Div(
+    [
+        html.H2("Gapminder Data Download", style={"marginBottom": 20}),
+        download_component,
+        range_slider,
+        download_button,
+        dtable,
+    ]
+)
+
+
+@app.callback(
+    Output(dtable, "data"),
+    Input(range_slider, "value"),
+)
+def update_table(slider_value):
+    if not slider_value:
+        return dash.no_update
+    dff = df[df.year.between(slider_value[0], slider_value[1])]
+    return dff.to_dict("records")
+
+
+@app.callback(
+    Output(download_component, "data"),
+    Input(download_button, "n_clicks"),
+    State(dtable, "derived_virtual_data"),
+    prevent_initial_call=True,
+)
+def download_data(n_clicks, data):
+    dff = pd.DataFrame(data)
+    return dcc.send_data_frame(dff.to_csv, "filtered_csv.csv")
+
+
+if __name__ == "__main__":
+    app.run_server(debug=True)
