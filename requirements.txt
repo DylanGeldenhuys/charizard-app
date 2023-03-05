@@ -1,0 +1,14 @@
+dash
+pandas
+dash-leaflet
+shapely
+geopandas
+matplotlib
+flask_sqlalchemy
+psycopg2-binary 
+tqdm
+dash[diskcache]
+dash_bootstrap_components
+dash==2.7.0
+gunicorn
+dash-tools
